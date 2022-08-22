@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ghost-blog-svc
+  namespace: blog
+  labels:
+    app: ghost-blog
+spec:
+  selector:
+    app: ghost-blog
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 2368
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ghost-blog-pvc
+  namespace: blog
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ghost-blog-container
+  namespace: blog
+  labels:
+    app: ghost-blog
+spec:
+  selector:
+    matchLabels:
+      app: ghost-blog
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ghost-blog
+    spec:
+      containers:
+      - name: ghost-blog
+        image: ghost:5.10-alpine
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi        
+        env:
+          - name: database__client
+            value: mysql
+          - name: database__connection__host
+            value: mysql-blog-svc
+          - name: database__connection__user
+            value: ghost
+          - name: database__connection__password
+            value: password
+          - name: database__connection__database
+            value: ghost
+          - name: url
+            value: http://blog.example.com
+          - name: NODE_ENV
+            value: development
+        ports:
+          - containerPort: 2368
+        volumeMounts:
+          - mountPath: /var/lib/ghost/content
+            name: ghost-content
+      volumes:
+        - name: ghost-content
+          persistentVolumeClaim:
+            claimName: ghost-blog-pvc
